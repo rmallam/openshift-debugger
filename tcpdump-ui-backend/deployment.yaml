@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcpdump-ui-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcpdump-ui-backend
+  template:
+    metadata:
+      labels:
+        app: tcpdump-ui-backend
+    spec:
+      serviceAccountName: node-debug-sa
+      containers:
+        - name: backend
+          image: mallam/tcpdump-ui-backend:latest
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DEBUG_POD
+              value: node-debug
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcpdump-ui-backend
+spec:
+  selector:
+    app: tcpdump-ui-backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: tcpdump-ui-backend
+spec:
+  to:
+    kind: Service
+    name: tcpdump-ui-backend
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge

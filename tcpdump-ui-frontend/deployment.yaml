@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcpdump-ui-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcpdump-ui-frontend
+  template:
+    metadata:
+      labels:
+        app: tcpdump-ui-frontend
+    spec:
+      serviceAccountName: node-debug-sa
+      containers:
+        - name: frontend
+          image: docker.io/nginx@sha256:d2e65182b5fd330470eca9b8e23e8a1a0d87cc9b820eb1fb3f034bf8248d37ee
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: default.conf
+      volumes:
+        - name: html
+          configMap:
+            name: tcpdump-ui-frontend-html
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-conf
+          configMap:
+            name: tcpdump-ui-frontend-nginx-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcpdump-ui-frontend
+spec:
+  selector:
+    app: tcpdump-ui-frontend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: tcpdump-ui-frontend
+spec:
+  to:
+    kind: Service
+    name: tcpdump-ui-frontend
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge

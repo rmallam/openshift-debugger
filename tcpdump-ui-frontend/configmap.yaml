@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcpdump-ui-frontend-html
+data:
+  index.html: |-
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>TCPDump/Ncat UI</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        textarea { width: 100%; height: 200px; }
+        .output { background: #f4f4f4; padding: 1em; margin-top: 1em; white-space: pre; }
+      </style>
+    </head>
+    <body>
+      <h2>TCPDump/Ncat UI</h2>
+      <div>
+        <h3>Run tcpdump</h3>
+        <input id="tcpdump-args" placeholder="e.g. -i eth0 -c 10" style="width: 60%" />
+        <button onclick="runTcpdump()" id="run-tcpdump">Run</button>
+        <button onclick="stopTcpdump()" id="stop-tcpdump" disabled>Stop</button>
+        <button onclick="exportTcpdump()" id="export-tcpdump" disabled>Export</button>
+        <button onclick="clearTcpdump()" id="clear-tcpdump">Clear</button>
+        <div id="tcpdump-output" class="output"></div>
+      </div>
+      <div>
+        <h3>Run ncat</h3>
+        <input id="ncat-args" placeholder="e.g. -v -z 8.8.8.8 53" style="width: 60%" />
+        <button onclick="runNcat()">Run</button>
+        <div id="ncat-output" class="output"></div>
+      </div>
+      <script>
+        let tcpdumpWS = null;
+        let tcpdumpOutput = '';
+        function runTcpdump() {
+          const args = document.getElementById('tcpdump-args').value;
+          const outputDiv = document.getElementById('tcpdump-output');
+          outputDiv.innerText = '';
+          tcpdumpOutput = '';
+          document.getElementById('run-tcpdump').disabled = true;
+          document.getElementById('stop-tcpdump').disabled = false;
+          document.getElementById('export-tcpdump').disabled = true;
+          let wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+          let wsUrl = `${wsProto}://${location.host}/ws/tcpdump`;
+          tcpdumpWS = new WebSocket(wsUrl);
+          tcpdumpWS.onopen = () => {
+            outputDiv.innerText = 'Running...';
+            tcpdumpWS.send(JSON.stringify({ args }));
+          };
+          tcpdumpWS.onmessage = (event) => {
+            // If the first message contains the node IP, show it in bold at the top and keep it
+            if (tcpdumpOutput === '' && event.data.startsWith('[Node IP:')) {
+              tcpdumpOutput = '';
+              outputDiv.innerHTML = `<b id='node-ip-line'>${event.data.trim()}</b><br>`;
+            } else {
+              tcpdumpOutput += event.data;
+              // Always keep the node IP line at the top
+              const nodeIpLine = document.getElementById('node-ip-line');
+              if (nodeIpLine) {
+                outputDiv.innerHTML = `<b id='node-ip-line'>${nodeIpLine.textContent}</b><br>` + `<pre style='display:inline;'>${tcpdumpOutput}</pre>`;
+              } else {
+                outputDiv.innerText = tcpdumpOutput;
+              }
+            }
+          };
+          tcpdumpWS.onerror = (event) => {
+            outputDiv.innerText += '\n[WebSocket error]';
+            document.getElementById('run-tcpdump').disabled = false;
+            document.getElementById('stop-tcpdump').disabled = true;
+            document.getElementById('export-tcpdump').disabled = false;
+          };
+          tcpdumpWS.onclose = () => {
+            document.getElementById('run-tcpdump').disabled = false;
+            document.getElementById('stop-tcpdump').disabled = true;
+            document.getElementById('export-tcpdump').disabled = false;
+          };
+        }
+        function stopTcpdump() {
+          if (tcpdumpWS) {
+            tcpdumpWS.close();
+          }
+        }
+        function exportTcpdump() {
+          const blob = new Blob([tcpdumpOutput], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'tcpdump-output.txt';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+
+        function clearTcpdump() {
+          tcpdumpOutput = '';
+          document.getElementById('tcpdump-output').innerText = '';
+        }
+        async function runNcat() {
+          const args = document.getElementById('ncat-args').value;
+          document.getElementById('ncat-output').innerText = 'Running...';
+          const resp = await fetch(`/ncat?args=${encodeURIComponent(args)}`);
+          const data = await resp.json();
+          document.getElementById('ncat-output').innerText = data.output || data.detail || JSON.stringify(data);
+        }
+      </script>
+    </body>
+    </html>

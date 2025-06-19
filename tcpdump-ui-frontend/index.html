@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TCPDump/Ncat UI</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    textarea { width: 100%; height: 200px; }
+    .output { background: #f4f4f4; padding: 1em; margin-top: 1em; white-space: pre; }
+  </style>
+</head>
+<body>
+  <h2>TCPDump/Ncat UI</h2>
+  <div>
+    <h3>Run tcpdump</h3>
+    <input id="tcpdump-args" placeholder="e.g. -i eth0 -c 10" style="width: 60%" />
+    <button onclick="runTcpdump()">Run</button>
+    <div id="tcpdump-output" class="output" style="height: 200px; overflow: auto; white-space: pre; background: #222; color: #eee;"></div>
+    <button id="stop-tcpdump" onclick="stopTcpdump()" style="display:none;">Stop</button>
+    <button id="export-tcpdump" onclick="exportTcpdump()" style="display:none;">Export</button>
+  </div>
+  <div>
+    <h3>Run ncat</h3>
+    <input id="ncat-args" placeholder="e.g. -v -z 8.8.8.8 53" style="width: 60%" />
+    <button onclick="runNcat()">Run</button>
+    <div id="ncat-output" class="output"></div>
+  </div>
+  <script>
+    let tcpdumpWS = null;
+    let tcpdumpBuffer = '';
+    async function runTcpdump() {
+      const args = document.getElementById('tcpdump-args').value;
+      document.getElementById('tcpdump-output').innerText = 'Running...';
+      // Also call legacy endpoint for compatibility
+      try {
+        const resp = await fetch(`/tcpdump?args=${encodeURIComponent(args)}`);
+        const data = await resp.json();
+        document.getElementById('tcpdump-output').innerText = data.output || data.detail || JSON.stringify(data);
+      } catch (e) {
+        document.getElementById('tcpdump-output').innerText = 'Error: ' + e;
+      }
+    }
+    function stopTcpdump() {
+      if (tcpdumpWS) {
+        tcpdumpWS.close();
+        tcpdumpWS = null;
+        document.getElementById('stop-tcpdump').style.display = 'none';
+      }
+    }
+    function exportTcpdump() {
+      const blob = new Blob([tcpdumpBuffer], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tcpdump-output.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    async function runNcat() {
+      let args = document.getElementById('ncat-args').value;
+      // Always add -v as the first argument, but do not wrap the rest in quotes or add extra spaces
+      args = ['-v'].concat(args.split(' ').filter(Boolean)).join(' ');
+      document.getElementById('ncat-output').innerText = 'Running...';
+      const resp = await fetch(`/ncat?args=${encodeURIComponent(args)}`);
+      const data = await resp.json();
+      document.getElementById('ncat-output').innerText = data.output || data.detail || JSON.stringify(data);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# Minimal image for netcat and tcpdump (no shell, no extra tools)
+FROM registry.access.redhat.com/ubi9/ubi-minimal
+RUN microdnf install -y iputils tcpdump net-tools && microdnf clean all
+# Remove all binaries except tcpdump and netstat
+RUN find /usr/bin /usr/sbin /bin /sbin /usr/local/bin -type f ! -name tcpdump ! -name netstat -exec rm -f {} + || true
+USER 1001
+ENTRYPOINT ["/bin/sh"]

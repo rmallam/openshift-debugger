@@ -1,0 +1,67 @@
+---
+# ClusterRole and ClusterRoleBinding for node-debug-sa to get nodes
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-debug-get-nodes
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-debug-get-nodes-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-debug-get-nodes
+subjects:
+  - kind: ServiceAccount
+    name: node-debug-sa
+    namespace: debugger
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-debug
+spec:
+  serviceAccountName: node-debug-sa
+  #hostNetwork: true
+  containers:
+    - name: nettools
+      image: registry.redhat.io/rhel8/support-tools:latest
+      command: ["/bin/sh", "-c", "sleep infinity"]
+      securityContext:
+        privileged: true
+        allowPrivilegeEscalation: true
+        runAsUser: 0
+  restartPolicy: Never
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-debug-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: node-debug-role
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec"]
+    verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: node-debug-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: node-debug-role
+subjects:
+  - kind: ServiceAccount
+    name: node-debug-sa
+    namespace: debugger

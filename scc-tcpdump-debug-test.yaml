@@ -1,0 +1,15 @@
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: tcpdump-debug-scc-test
+allowPrivilegedContainer: true
+allowHostNetwork: true
+allowHostPorts: false
+allowHostPID: false
+allowHostIPC: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+users:
+  - system:serviceaccount:debugger:node-debug-sa
