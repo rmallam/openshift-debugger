@@ -1,16 +1,24 @@
 
 
-from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect, Request, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from kubernetes import client, config, stream
 import os
 import asyncio
 import threading
 import logging
-from typing import List
+import json
+import time
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict
+import uuid
+import hashlib
 
 NAMESPACE = os.environ.get("POD_NAMESPACE", "default")
 DEBUG_POD = os.environ.get("DEBUG_POD", "node-debug")
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "admin-secret-token-change-me")
+APPROVAL_REQUIRED = os.environ.get("APPROVAL_REQUIRED", "true").lower() == "true"
 
 
 # Enable logging
